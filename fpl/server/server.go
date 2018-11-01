@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"encoding/csv"
@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"time"
 
-	pb "github.com/go-fantasy/src/server/grpc"
+	pb "github.com/go-fantasy/fpl/grpc"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )

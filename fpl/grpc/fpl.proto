@@ -1,5 +1,5 @@
 syntax = "proto3";
-package customer;
+package grpc;
 
 // The greeting service definition.
 service Greeter {
@@ -48,6 +48,7 @@ message GameweekReq {
 message PlayerOccuranceData {
   string playerName = 1;
   int32 playerOccuranceForGameweek = 2;
+  map<string, int32> playerOccurance = 3;
 }
 message GameweekData {
   repeated PlayerOccuranceData playerOccuranceData = 1;
