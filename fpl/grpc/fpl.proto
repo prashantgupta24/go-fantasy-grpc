@@ -10,7 +10,8 @@ service Greeter {
 service FPL {
   rpc getNumberOfPlayers (NumPlayerRequest) returns (NumPlayers) {}
   rpc getParticipantsInLeague (LeagueCode) returns (numParticipants) {}
-  rpc getDataForGameweek(GameweekReq) returns (stream PlayerOccuranceData) {}
+  rpc getDataForGameweek(GameweekReq) returns (PlayerOccuranceData) {}
+  rpc getDataForAllGameweeks(LeagueCode) returns (stream AllGameweekData) {}
 }
 
 
@@ -46,9 +47,13 @@ message GameweekReq {
 }
 
 message PlayerOccuranceData {
-  string playerName = 1;
-  int32 playerOccuranceForGameweek = 2;
-  map<string, int32> playerOccurance = 3;
+  // string playerName = 1;
+  // int32 playerOccuranceForGameweek = 2;
+  map<string, int32> playerOccurance = 1;
+}
+
+message AllGameweekData {
+  bytes data = 1;
 }
 message GameweekData {
   repeated PlayerOccuranceData playerOccuranceData = 1;

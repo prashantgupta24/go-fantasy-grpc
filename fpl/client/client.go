@@ -2,20 +2,19 @@ package main
 
 import (
 	"context"
-	"io"
 	"log"
 	"time"
 
-	pb "github.com/go-fantasy/src/server/grpc"
+	pb "github.com/go-fantasy/fpl/grpc"
 	"google.golang.org/grpc"
 )
 
 const (
-	address     = "localhost:50051"
-	defaultName = "world"
+	address = "localhost:50051"
 )
 
 func main() {
+
 	// Set up a connection to the server.
 	conn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
@@ -24,19 +23,6 @@ func main() {
 	defer conn.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	// c := pb.NewGreeterClient(conn)
-
-	// // Contact the server and print out its response.
-	// name := defaultName
-	// if len(os.Args) > 1 {
-	// 	name = os.Args[1]
-	// }
-
-	// r, err := c.SayHello(ctx, &pb.HelloRequest{Name: name})
-	// if err != nil {
-	// 	log.Fatalf("could not greet: %v", err)
-	// }
-	// log.Printf("Greeting: %s", r.Message)
 
 	fplClient := pb.NewFPLClient(conn)
 
@@ -57,16 +43,38 @@ func main() {
 
 	log.Printf("There are %v participants in %v league!", numParticipants.NumParticipants, leagueCode)
 
-	playerOccuranceDataStream, err := fplClient.GetDataForGameweek(ctx, &pb.GameweekReq{LeagueCode: 313, Gameweek: 9})
+	playerOccurance, err := fplClient.GetDataForGameweek(ctx, &pb.GameweekReq{LeagueCode: 313, Gameweek: 9})
 
-	for {
-		playerOccuranceData, err := playerOccuranceDataStream.Recv()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			log.Fatalf("%v.ListFeatures(_) = _, %v", fplClient, err)
-		}
-		log.Printf("Player %v was selected by %v player/s!", playerOccuranceData.PlayerName, playerOccuranceData.PlayerOccuranceForGameweek)
+	// for {
+	// 	playerOccuranceData, err := playerOccuranceDataStream.Recv()
+	// 	if err == io.EOF {
+	// 		break
+	// 	}
+	// 	if err != nil {
+	// 		log.Fatalf("%v.ListFeatures(_) = _, %v", fplClient, err)
+	// 	}
+	// 	log.Printf("Player %v was selected by %v player/s!", playerOccuranceData.PlayerName, playerOccuranceData.PlayerOccuranceForGameweek)
+	// }
+
+	for player, occurance := range playerOccurance.PlayerOccurance {
+		log.Printf("Player %v was selected by %v player/s!", player, occurance)
 	}
+
+	// csvFile, err := fplClient.GetDataForAllGameweeks(ctx, &pb.LeagueCode{LeagueCode: leagueCode})
+
+	// f, err := os.Create("dataFile")
+	// if err != nil {
+	// 	log.Fatal("unable to create file")
+	// }
+	// defer f.Close()
+	// for {
+	// 	buf, err := csvFile.Recv()
+	// 	if err != nil {
+	// 		break
+	// 	}
+	// 	n2, err := f.Write()
+	// 	if err != nil {
+	// 		break
+	// 	}
+	// }
 }
