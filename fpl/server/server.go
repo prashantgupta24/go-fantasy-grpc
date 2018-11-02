@@ -283,18 +283,6 @@ func (s *fplServer) GetDataForGameweek(cxt context.Context, req *pb.GameweekReq)
 		}
 	}
 	if len(playerOccuranceForGameweek) > 0 {
-		// playerOccuranceForGameweekMap := make(map[int]map[string]int)
-		// playerOccuranceForGameweekMap[gameweek] = playerOccuranceForGameweek
-		// playerOccuranceChan <- playerOccuranceForGameweekMap
-		// for player, occurance := range playerOccuranceForGameweek {
-		// 	if err := stream.Send(&pb.PlayerOccuranceData{
-		// 		PlayerOccurance[player]: int32(occurance),
-		// 	},
-		// 	); err != nil {
-		// 		return nil, err
-		// 	}
-		// }
-
 		playerOccuranceData := &pb.PlayerOccuranceData{
 			PlayerOccurance: make(map[string]int32),
 		}
@@ -353,17 +341,14 @@ func (s *fplServer) GetDataForAllGameweeks(req *pb.LeagueCode, stream pb.FPL_Get
 	if err != nil {
 		return nil
 	}
-	// defer func() {
-	// 	fmt.Println("removing temp file ", fileName)
-	// 	os.Remove(fileName)
-	// }()
+	defer func() {
+		fmt.Println("removing temp file ", fileName)
+		os.Remove(fileName)
+	}()
 
 	buf := make([]byte, 200)
 	for {
-		// put as many bytes as `chunkSize` into the
-		// buf array.
 		n, err := file.Read(buf)
-		//fmt.Printf("writing %v bytes", n)
 		if err == io.EOF {
 			return nil
 		}
@@ -371,12 +356,6 @@ func (s *fplServer) GetDataForAllGameweeks(req *pb.LeagueCode, stream pb.FPL_Get
 			return err
 		}
 		stream.Send(&pb.AllGameweekData{
-			// because we might've read less than
-			// `chunkSize` we want to only send up to
-			// `n` (amount of bytes read).
-			// note: slicing (`:n`) won't copy the
-			// underlying data, so this as fast as taking
-			// a "pointer" to the underlying storage.
 			Data: buf[:n],
 		})
 	}
@@ -390,7 +369,6 @@ func StartgRPCServer() {
 	}
 	// Creates a new gRPC server
 	grpcServer := grpc.NewServer()
-	pb.RegisterGreeterServer(grpcServer, &greeterServer{})
 	pb.RegisterFPLServer(grpcServer, &fplServer{})
 	fmt.Println("started grpc server ...")
 	grpcServer.Serve(lis)
