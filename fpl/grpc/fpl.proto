@@ -1,18 +1,12 @@
 syntax = "proto3";
-package customer;
-
-// The greeting service definition.
-service Greeter {
-  // Sends a greeting
-  rpc SayHello (HelloRequest) returns (HelloReply) {}
-}
+package grpc;
 
 service FPL {
   rpc getNumberOfPlayers (NumPlayerRequest) returns (NumPlayers) {}
   rpc getParticipantsInLeague (LeagueCode) returns (numParticipants) {}
-  rpc getDataForGameweek(GameweekReq) returns (stream PlayerOccuranceData) {}
+  rpc getDataForGameweek(GameweekReq) returns (PlayerOccuranceData) {}
+  rpc getDataForAllGameweeks(LeagueCode) returns (stream AllGameweekData) {}
 }
-
 
 // The request message containing the user's name.
 message HelloRequest {
@@ -25,7 +19,6 @@ message HelloReply {
 }
 
 message NumPlayerRequest {
-
 }
 
 message NumPlayers {
@@ -46,9 +39,9 @@ message GameweekReq {
 }
 
 message PlayerOccuranceData {
-  string playerName = 1;
-  int32 playerOccuranceForGameweek = 2;
+  map<string, int32> playerOccurance = 1;
 }
-message GameweekData {
-  repeated PlayerOccuranceData playerOccuranceData = 1;
+
+message AllGameweekData {
+  bytes data = 1;
 }
