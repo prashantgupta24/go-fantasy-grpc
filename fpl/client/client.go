@@ -2,7 +2,10 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"log"
+	"os"
 	"time"
 
 	pb "github.com/go-fantasy/fpl/grpc"
@@ -21,7 +24,7 @@ func main() {
 		log.Fatalf("did not connect: %v", err)
 	}
 	defer conn.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
 	fplClient := pb.NewFPLClient(conn)
@@ -43,7 +46,7 @@ func main() {
 
 	log.Printf("There are %v participants in %v league!", numParticipants.NumParticipants, leagueCode)
 
-	playerOccurance, err := fplClient.GetDataForGameweek(ctx, &pb.GameweekReq{LeagueCode: 313, Gameweek: 9})
+	//playerOccurance, err := fplClient.GetDataForGameweek(ctx, &pb.GameweekReq{LeagueCode: 313, Gameweek: 9})
 
 	// for {
 	// 	playerOccuranceData, err := playerOccuranceDataStream.Recv()
@@ -56,25 +59,31 @@ func main() {
 	// 	log.Printf("Player %v was selected by %v player/s!", playerOccuranceData.PlayerName, playerOccuranceData.PlayerOccuranceForGameweek)
 	// }
 
-	for player, occurance := range playerOccurance.PlayerOccurance {
-		log.Printf("Player %v was selected by %v player/s!", player, occurance)
+	// for player, occurance := range playerOccurance.PlayerOccurance {
+	// 	log.Printf("Player %v was selected by %v player/s!", player, occurance)
+	// }
+
+	csvFile, err := fplClient.GetDataForAllGameweeks(ctx, &pb.LeagueCode{LeagueCode: leagueCode})
+
+	f, err := os.Create(fmt.Sprintf("dataFile-%v.csv", leagueCode))
+	if err != nil {
+		log.Fatal("unable to create file")
 	}
-
-	// csvFile, err := fplClient.GetDataForAllGameweeks(ctx, &pb.LeagueCode{LeagueCode: leagueCode})
-
-	// f, err := os.Create("dataFile")
-	// if err != nil {
-	// 	log.Fatal("unable to create file")
-	// }
-	// defer f.Close()
-	// for {
-	// 	buf, err := csvFile.Recv()
-	// 	if err != nil {
-	// 		break
-	// 	}
-	// 	n2, err := f.Write()
-	// 	if err != nil {
-	// 		break
-	// 	}
-	// }
+	defer f.Close()
+	for {
+		buf, err := csvFile.Recv()
+		if err == io.EOF {
+			log.Println("File received!")
+			break
+		}
+		if err != nil {
+			log.Fatal("Error while reading from file", err)
+		}
+		n, err := f.Write(buf.Data)
+		if err != nil {
+			break
+		}
+		fmt.Println("written bytes! ", n)
+	}
+	f.Sync()
 }
