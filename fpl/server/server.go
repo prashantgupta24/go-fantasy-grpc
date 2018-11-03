@@ -1,289 +1,44 @@
 package server
 
 import (
-	"encoding/csv"
-	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"os"
-	"strconv"
 	"sync"
 	"time"
 
-	pb "github.com/go-fantasy/fpl/grpc"
+	grpc_fpl "github.com/go-fantasy/fpl/grpc"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
 
-const (
-	port            = ":50051"
-	teamURL         = "https://fantasy.premierleague.com/drf/entry/%v/event/%v/picks"
-	allPlayersURL   = "https://fantasy.premierleague.com/drf/bootstrap-static"
-	participantsURL = "https://fantasy.premierleague.com/drf/leagues-classic-standings/%v?phase=1&le-page=1&ls-page=1"
-	csvFileName     = "data/result-%v-%v.csv"
-	gameweekMax     = 38
-)
-
-type fantasyMain struct {
-	httpClient         *http.Client
-	playerMap          map[int64]string
-	leagueParticipants []int64
-	playerOccurances   map[int]map[string]int
+func (s *MyFPLServer) GetNumberOfPlayers(context.Context, *grpc_fpl.NumPlayerRequest) (*grpc_fpl.NumPlayers, error) {
+	numPlayersInFPL := GetPlayerMapping(s)
+	return &grpc_fpl.NumPlayers{NumPlayers: int64(numPlayersInFPL)}, nil
 }
 
-/* Structure of JSON
-
-picks
-    0
-    element	260
-    1
-    element	247
-*/
-type ParticipantTeamInfo struct {
-	TeamPlayers []TeamPlayers `json:"picks"`
-}
-type TeamPlayers struct {
-	Element int64 `json:"element"`
+func (s *MyFPLServer) GetParticipantsInLeague(cxt context.Context, leagueCode *grpc_fpl.LeagueCode) (*grpc_fpl.NumParticipants, error) {
+	numParticipants := GetParticipantsInLeague(s, int(leagueCode.LeagueCode))
+	return &grpc_fpl.NumParticipants{NumParticipants: int64(numParticipants)}, nil
 }
 
-/* Structure of JSON
-
-elements
-    0
-    id	1
-    photo	"11334.jpg"
-    web_name	"Cech"
-    team_code	3
-    status	"i"
-    code	11334
-    first_name	"Petr"
-    second_name	"Cech"
-    squad_number	1
-
-    1
-    id	2
-    photo	"80201.jpg"
-    web_name	"Leno"
-    team_code	3
-    status	"a"
-    code	80201
-    first_name	"Bernd"
-    second_name	"Leno"
-    squad_number	19
-*/
-type AllPlayers struct {
-	Players []Players `json:"elements"`
-}
-type Players struct {
-	ID      int64  `json:"id"`
-	WebName string `json:"web_name"`
-}
-
-/* Structure of JSON
-
-standings
-    has_next	true
-    number	1
-    results
-        0
-        id	13987896
-        rank	1
-        last_rank	1
-        rank_sort	1
-        total	575
-        entry	2557010
-
-        1
-        id	13148025
-        rank	2
-        last_rank	5
-        rank_sort	2
-        total	572
-        entry	2415205
-*/
-type LeagueParticipants struct {
-	LeagueStandings LeagueStandings `json:"standings"`
-}
-type LeagueStandings struct {
-	LeagueResults []LeagueResults `json:"results"`
-}
-type LeagueResults struct {
-	Entry int64 `json:"entry"`
-}
-
-func makeRequest(fantasyMain *fantasyMain, URL string) []byte {
-	req, err := http.NewRequest(http.MethodGet, URL, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	req.Header.Set("User-Agent", "pg-fpl")
-
-	resp, err := fantasyMain.httpClient.Do(req)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if err != nil {
-		log.Fatal(err)
-	}
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		panic(err.Error())
-	}
-	return body
-}
-
-func getTeamInfoForParticipant(participantNumber int64, gameweek int, playerOccurance map[string]int, fantasyMain *fantasyMain) error {
-	teamURL := fmt.Sprintf(teamURL, participantNumber, gameweek)
-
-	response := makeRequest(fantasyMain, teamURL)
-	ParticipantTeamInfo := new(ParticipantTeamInfo)
-	err := json.Unmarshal(response, &ParticipantTeamInfo)
-	if err != nil {
-		return err
-	}
-
-	for _, player := range ParticipantTeamInfo.TeamPlayers {
-		playerOccurance[fantasyMain.playerMap[player.Element]]++
-	}
-	return nil
-}
-
-func getPlayerMapping(fantasyMain *fantasyMain) int {
-	response := makeRequest(fantasyMain, allPlayersURL)
-	allPlayers := new(AllPlayers)
-	err := json.Unmarshal(response, &allPlayers)
-	if err != nil {
-		panic(err.Error())
-	}
-
-	for _, player := range allPlayers.Players {
-		fantasyMain.playerMap[player.ID] = player.WebName
-	}
-
-	fmt.Printf("Fetched data of %v premier league players \n", strconv.Itoa(len(fantasyMain.playerMap)))
-	return len(fantasyMain.playerMap)
-
-}
-
-func getParticipantsInLeague(fantasyMain *fantasyMain, leagueCode int) int {
-	participantsURL := fmt.Sprintf(participantsURL, leagueCode)
-
-	response := makeRequest(fantasyMain, participantsURL)
-	leagueParticipants := new(LeagueParticipants)
-	err := json.Unmarshal(response, &leagueParticipants)
-	if err != nil {
-		panic(err.Error())
-	}
-
-	for _, participant := range leagueParticipants.LeagueStandings.LeagueResults {
-		fantasyMain.leagueParticipants = append(fantasyMain.leagueParticipants, participant.Entry)
-	}
-
-	fmt.Printf("Fetched %v participants in league", strconv.Itoa(len(fantasyMain.leagueParticipants)))
-	return len(fantasyMain.leagueParticipants)
-}
-
-func writeToFile(fantasyMain *fantasyMain, leagueCode int) string {
-	fmt.Println("Writing to file ...")
-
-	fileName := fmt.Sprintf(csvFileName, time.Now().Format("2006-01-02"), leagueCode)
-	file, err := os.Create(fileName)
-	if err != nil {
-		panic(err)
-	}
-	defer file.Close()
-
-	writer := csv.NewWriter(file)
-	defer writer.Flush()
-
-	numOfGameweeks := len(fantasyMain.playerOccurances)
-	//Headers
-	var record []string
-	record = append(record, "Player")
-	for gameweekNum := 1; gameweekNum <= numOfGameweeks; gameweekNum++ {
-		record = append(record, fmt.Sprintf("Gameweek %v", gameweekNum))
-	}
-
-	err = writer.Write(record)
-	if err != nil {
-		panic(err)
-	}
-
-	allPlayers := fantasyMain.playerOccurances[numOfGameweeks]
-
-	for player := range allPlayers {
-
-		var record []string
-		record = append(record, string(player))
-
-		for gameweekNum := 1; gameweekNum <= numOfGameweeks; gameweekNum++ {
-			playerOccuranceForGameweek := fantasyMain.playerOccurances[gameweekNum]
-			record = append(record, strconv.Itoa(playerOccuranceForGameweek[player]))
-		}
-
-		err := writer.Write(record)
-		if err != nil {
-			panic(err)
-		}
-	}
-	return fileName
-}
-
-type greeterServer struct{}
-
-// SayHello implements helloworld.GreeterServer
-func (s *greeterServer) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloReply, error) {
-	return &pb.HelloReply{Message: "Hello " + in.Name}, nil
-}
-
-type fplServer struct{}
-
-func createFantasyObject() *fantasyMain {
-	var httpClient = &http.Client{
-		Timeout: time.Second * 10,
-	}
-
-	fantasyMain := &fantasyMain{
-		httpClient:       httpClient,
-		playerMap:        make(map[int64]string),
-		playerOccurances: make(map[int]map[string]int),
-	}
-
-	return fantasyMain
-}
-
-func (s *fplServer) GetNumberOfPlayers(context.Context, *pb.NumPlayerRequest) (*pb.NumPlayers, error) {
-	numPlayersInFPL := getPlayerMapping(createFantasyObject())
-	return &pb.NumPlayers{NumPlayers: int64(numPlayersInFPL)}, nil
-}
-
-func (s *fplServer) GetParticipantsInLeague(cxt context.Context, leagueCode *pb.LeagueCode) (*pb.NumParticipants, error) {
-	numParticipants := getParticipantsInLeague(createFantasyObject(), int(leagueCode.LeagueCode))
-	return &pb.NumParticipants{NumParticipants: int64(numParticipants)}, nil
-}
-
-func (s *fplServer) GetDataForGameweek(cxt context.Context, req *pb.GameweekReq) (*pb.PlayerOccuranceData, error) {
-	fplObject := createFantasyObject()
-	getPlayerMapping(fplObject)
-	getParticipantsInLeague(fplObject, int(req.LeagueCode))
+func (s *MyFPLServer) GetDataForGameweek(cxt context.Context, req *grpc_fpl.GameweekReq) (*grpc_fpl.PlayerOccuranceData, error) {
+	GetPlayerMapping(s)
+	GetParticipantsInLeague(s, int(req.LeagueCode))
 
 	playerOccuranceForGameweek := make(map[string]int)
 	fmt.Printf("Fetching data for gameweek %v\n", req.Gameweek)
 
-	for _, participant := range fplObject.leagueParticipants[0:10] {
-		err := getTeamInfoForParticipant(participant, int(req.Gameweek), playerOccuranceForGameweek, fplObject)
+	for _, participant := range s.leagueParticipants[0:10] {
+		err := GetTeamInfoForParticipant(participant, int(req.Gameweek), playerOccuranceForGameweek, s)
 		if err != nil {
 			break
 		}
 	}
 	if len(playerOccuranceForGameweek) > 0 {
-		playerOccuranceData := &pb.PlayerOccuranceData{
+		playerOccuranceData := &grpc_fpl.PlayerOccuranceData{
 			PlayerOccurance: make(map[string]int32),
 		}
 		playerOccuranceResult := make(map[string]int32)
@@ -296,10 +51,9 @@ func (s *fplServer) GetDataForGameweek(cxt context.Context, req *pb.GameweekReq)
 	return nil, nil
 }
 
-func (s *fplServer) GetDataForAllGameweeks(req *pb.LeagueCode, stream pb.FPL_GetDataForAllGameweeksServer) error {
-	fplObject := createFantasyObject()
-	getPlayerMapping(fplObject)
-	getParticipantsInLeague(fplObject, int(req.LeagueCode))
+func (s *MyFPLServer) GetDataForAllGameweeks(req *grpc_fpl.LeagueCode, stream grpc_fpl.FPL_GetDataForAllGameweeksServer) error {
+	GetPlayerMapping(s)
+	GetParticipantsInLeague(s, int(req.LeagueCode))
 
 	var wg sync.WaitGroup
 	playerOccuranceChan := make(chan map[int]map[string]int)
@@ -310,8 +64,8 @@ func (s *fplServer) GetDataForAllGameweeks(req *pb.LeagueCode, stream pb.FPL_Get
 			playerOccuranceForGameweek := make(map[string]int)
 			fmt.Printf("Fetching data for gameweek %v\n", gameweek)
 
-			for _, participant := range fplObject.leagueParticipants[0:10] {
-				err := getTeamInfoForParticipant(participant, gameweek, playerOccuranceForGameweek, fplObject)
+			for _, participant := range s.leagueParticipants[0:10] {
+				err := GetTeamInfoForParticipant(participant, gameweek, playerOccuranceForGameweek, s)
 				if err != nil {
 					break
 				}
@@ -333,10 +87,10 @@ func (s *fplServer) GetDataForAllGameweeks(req *pb.LeagueCode, stream pb.FPL_Get
 	for playerOccuranceForGameweekMap := range playerOccuranceChan {
 		for gameweekNum, playerOccuranceForGameweek := range playerOccuranceForGameweekMap {
 			fmt.Printf("Data fetched for gameweek %v!\n", gameweekNum)
-			fplObject.playerOccurances[gameweekNum] = playerOccuranceForGameweek
+			s.playerOccurances[gameweekNum] = playerOccuranceForGameweek
 		}
 	}
-	fileName := writeToFile(fplObject, int(req.LeagueCode))
+	fileName := WriteToFile(s, int(req.LeagueCode))
 	file, err := os.Open(fileName)
 	if err != nil {
 		return nil
@@ -355,21 +109,46 @@ func (s *fplServer) GetDataForAllGameweeks(req *pb.LeagueCode, stream pb.FPL_Get
 		if err != nil {
 			return err
 		}
-		stream.Send(&pb.AllGameweekData{
+		stream.Send(&grpc_fpl.AllGameweekData{
 			Data: buf[:n],
 		})
 	}
 }
 
-//StartgRPCServer is the official call to start the gRPC server
-func StartgRPCServer() {
-	lis, err := net.Listen("tcp", port)
+//New is a helper function to create the main struct
+func New() FPLServer {
+	var httpClient = &http.Client{
+		Timeout: time.Second * 10,
+	}
+
+	myFPLServer := &MyFPLServer{
+		httpClient:       httpClient,
+		playerMap:        make(map[int64]string),
+		playerOccurances: make(map[int]map[string]int),
+	}
+
+	return myFPLServer
+}
+
+//Start will start the gRPC server
+func (s *MyFPLServer) Start(port string) error {
+	err := startgRPCServer(s, port)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		return err
+	}
+	return nil
+}
+
+//startgRPCServer is the official call to start the gRPC server
+func startgRPCServer(myFPLServer *MyFPLServer, port string) error {
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%v", port))
+	if err != nil {
+		return err
 	}
 	// Creates a new gRPC server
 	grpcServer := grpc.NewServer()
-	pb.RegisterFPLServer(grpcServer, &fplServer{})
+	grpc_fpl.RegisterFPLServer(grpcServer, myFPLServer)
 	fmt.Println("started grpc server ...")
 	grpcServer.Serve(lis)
+	return nil
 }
