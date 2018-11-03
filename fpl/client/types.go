@@ -15,5 +15,5 @@ type FPLClient interface {
 //MyFPLClient is my implementation of the official client
 type MyFPLClient struct {
 	conn   *grpc.ClientConn
-	Client grpc_fpl.FPLClient
+	client grpc_fpl.FPLClient
 }

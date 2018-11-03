@@ -22,14 +22,14 @@ func (myFPLClient *MyFPLClient) Connect(port string) error {
 
 	client := grpc_fpl.NewFPLClient(conn)
 	myFPLClient.conn = conn
-	myFPLClient.Client = client
+	myFPLClient.client = client
 
 	return nil
 }
 
 //GetClient returns the client object from the main struct
 func (myFPLClient *MyFPLClient) GetClient() grpc_fpl.FPLClient {
-	return myFPLClient.Client
+	return myFPLClient.client
 }
 
 // Close handles closing gRPC connection
