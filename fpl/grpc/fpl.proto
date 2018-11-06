@@ -8,16 +8,6 @@ service FPL {
   rpc getDataForAllGameweeks(LeagueCode) returns (stream AllGameweekData) {}
 }
 
-// The request message containing the user's name.
-message HelloRequest {
-  string name = 1;
-}
-
-// The response message containing the greetings
-message HelloReply {
-  string message = 1;
-}
-
 message NumPlayerRequest {
 }
 
