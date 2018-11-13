@@ -1,0 +1,20 @@
+package: github.com/go-fantasy
+import:
+- package: github.com/golang/protobuf
+  version: ~1.2.0
+  subpackages:
+  - proto
+- package: github.com/pkg/errors
+  version: ~0.8.0
+- package: github.com/spf13/pflag
+  version: ~1.0.3
+- package: github.com/spf13/viper
+  version: ~1.2.1
+- package: golang.org/x/net
+  subpackages:
+  - context
+- package: google.golang.org/grpc
+  version: ~1.16.0
+  subpackages:
+  - codes
+  - status

@@ -17,7 +17,7 @@ func (myFPLClient *MyFPLClient) Connect(port string) error {
 	// Set up a connection to the server.
 	conn, err := grpc.Dial(fmt.Sprintf("localhost:%v", port), grpc.WithInsecure())
 	if err != nil {
-		return err
+		return fmt.Errorf("error while connecting to gRPC server : %v", err)
 	}
 
 	client := grpc_fpl.NewFPLClient(conn)

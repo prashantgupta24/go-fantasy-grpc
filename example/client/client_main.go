@@ -63,7 +63,7 @@ func main() {
 	// }
 
 	//Fourth method
-	resultFile, err := os.Create(fmt.Sprintf("../data/dataFile-%v-%v.csv", time.Now().Format("2006-01-02"), leagueCode))
+	resultFile, err := os.Create(fmt.Sprintf("dataFile-%v-%v.csv", time.Now().Format("2006-01-02"), leagueCode))
 	if err != nil {
 		log.Fatal("Unable to create file : ", err)
 	}

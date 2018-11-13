@@ -9,23 +9,38 @@ import (
 	"sync"
 	"time"
 
+	"google.golang.org/grpc/codes"
+
 	grpc_fpl "github.com/go-fantasy/fpl/grpc"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 )
 
+//GetNumberOfPlayers is the gRPC method to get number of players
 func (s *MyFPLServer) GetNumberOfPlayers(context.Context, *grpc_fpl.NumPlayerRequest) (*grpc_fpl.NumPlayers, error) {
-	numPlayersInFPL := GetPlayerMapping(s)
+	numPlayersInFPL, err := GetPlayerMapping(s)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "error while getting player mapping : %v", err)
+	}
 	return &grpc_fpl.NumPlayers{NumPlayers: int64(numPlayersInFPL)}, nil
 }
 
+//GetParticipantsInLeague is the gRPC method to get number of participants in a league
 func (s *MyFPLServer) GetParticipantsInLeague(cxt context.Context, leagueCode *grpc_fpl.LeagueCode) (*grpc_fpl.NumParticipants, error) {
-	numParticipants := GetParticipantsInLeague(s, int(leagueCode.LeagueCode))
+	numParticipants, err := GetParticipantsInLeague(s, int(leagueCode.LeagueCode))
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "error while getting participants in league : %v", err)
+	}
 	return &grpc_fpl.NumParticipants{NumParticipants: int64(numParticipants)}, nil
 }
 
+//GetDataForGameweek is the gRPC method to get player occurances for a single gameweek
 func (s *MyFPLServer) GetDataForGameweek(cxt context.Context, req *grpc_fpl.GameweekReq) (*grpc_fpl.PlayerOccuranceData, error) {
-	GetPlayerMapping(s)
+	_, err := GetPlayerMapping(s)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "error while getting player mapping : %v", err)
+	}
 	GetParticipantsInLeague(s, int(req.LeagueCode))
 
 	playerOccuranceForGameweek := make(map[string]int)
@@ -51,8 +66,12 @@ func (s *MyFPLServer) GetDataForGameweek(cxt context.Context, req *grpc_fpl.Game
 	return nil, nil
 }
 
+//GetDataForAllGameweeks is the gRPC method to get player occurances for all available gameweeks in a csv format
 func (s *MyFPLServer) GetDataForAllGameweeks(req *grpc_fpl.LeagueCode, stream grpc_fpl.FPL_GetDataForAllGameweeksServer) error {
-	GetPlayerMapping(s)
+	_, err := GetPlayerMapping(s)
+	if err != nil {
+		return status.Errorf(codes.Internal, "error while getting player mapping : %v", err)
+	}
 	GetParticipantsInLeague(s, int(req.LeagueCode))
 
 	var wg sync.WaitGroup
@@ -90,14 +109,23 @@ func (s *MyFPLServer) GetDataForAllGameweeks(req *grpc_fpl.LeagueCode, stream gr
 			s.playerOccurances[gameweekNum] = playerOccuranceForGameweek
 		}
 	}
-	fileName := WriteToFile(s, int(req.LeagueCode))
+	fileName, err := WriteToFile(s, int(req.LeagueCode))
+	if err != nil {
+		return err
+	}
+
 	file, err := os.Open(fileName)
 	if err != nil {
-		return nil
+		return status.Errorf(codes.Internal, "error while opening file : %v", err)
 	}
-	defer func() {
+
+	defer func() error {
 		fmt.Println("removing temp file ", fileName)
-		os.Remove(fileName)
+		err := os.Remove(fileName)
+		if err != nil {
+			return status.Errorf(codes.Internal, "error while deleting file : %v", err)
+		}
+		return nil
 	}()
 
 	buf := make([]byte, 200)
@@ -107,7 +135,7 @@ func (s *MyFPLServer) GetDataForAllGameweeks(req *grpc_fpl.LeagueCode, stream gr
 			return nil
 		}
 		if err != nil {
-			return err
+			return status.Errorf(codes.Internal, "error while writing to file : %v", err)
 		}
 		stream.Send(&grpc_fpl.AllGameweekData{
 			Data: buf[:n],
@@ -143,12 +171,12 @@ func (s *MyFPLServer) Start(port string) error {
 func startgRPCServer(myFPLServer *MyFPLServer, port string) error {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%v", port))
 	if err != nil {
-		return err
+		return status.Errorf(codes.Internal, "error while starting server : %v", err)
 	}
 	// Creates a new gRPC server
 	grpcServer := grpc.NewServer()
 	grpc_fpl.RegisterFPLServer(grpcServer, myFPLServer)
-	fmt.Println("started grpc server ...")
+	fmt.Printf("started grpc server at port %v ...\n", port)
 	grpcServer.Serve(lis)
 	return nil
 }

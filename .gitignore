@@ -1,2 +1,5 @@
 *.csv
 transfers
+example/bin
+
+/vendor
