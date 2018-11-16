@@ -101,22 +101,24 @@ type LeagueResults struct {
 	Entry int64 `json:"entry"`
 }
 
-func GetTeamInfoForParticipant(participantNumber int64, gameweek int, playerOccurance map[string]int, myFPLServer *MyFPLServer) error {
+func GetTeamInfoForParticipant(participantNumber int64, gameweek int, playerOccurance map[string]int, myFPLServer FPLServer) error {
 	teamURL := fmt.Sprintf(teamURL, participantNumber, gameweek)
 
-	response, err := makeRequest(myFPLServer, teamURL)
+	response, err := myFPLServer.MakeRequest(teamURL)
 	if err != nil {
-		return errors.Errorf("error making request : %v", err)
+		return err
 	}
 
 	ParticipantTeamInfo := new(ParticipantTeamInfo)
 	err = json.Unmarshal(response, &ParticipantTeamInfo)
 	if err != nil {
-		return err
+		fmt.Println("error ")
+		return errors.Errorf("error unmarshalling response URL %v for GetTeamInfoForParticipant: %v", teamURL, err)
 	}
 
+	playerMap := myFPLServer.GetPlayerMap()
 	for _, player := range ParticipantTeamInfo.TeamPlayers {
-		playerOccurance[myFPLServer.playerMap[player.Element]]++
+		playerOccurance[playerMap[player.Element]]++
 	}
 	return nil
 }
@@ -125,13 +127,13 @@ func GetPlayerMapping(myFPLServer *MyFPLServer) (int, error) {
 
 	response, err := makeRequest(myFPLServer, allPlayersURL)
 	if err != nil {
-		return 0, errors.Errorf("error making request : %v", err)
+		return 0, err
 	}
 
 	allPlayers := new(AllPlayers)
 	err = json.Unmarshal(response, &allPlayers)
 	if err != nil {
-		return 0, err
+		return 0, errors.Errorf("error unmarshalling response for GetPlayerMapping : %v", err)
 	}
 
 	for _, player := range allPlayers.Players {
@@ -148,13 +150,13 @@ func GetParticipantsInLeague(myFPLServer *MyFPLServer, leagueCode int) (int, err
 
 	response, err := makeRequest(myFPLServer, participantsURL)
 	if err != nil {
-		return 0, errors.Errorf("error making request : %v", err)
+		return 0, err
 	}
 
 	leagueParticipants := new(LeagueParticipants)
 	err = json.Unmarshal(response, &leagueParticipants)
 	if err != nil {
-		return 0, errors.Errorf("could not parse response : %v", err)
+		return 0, errors.Errorf("could not parse response for GetParticipantsInLeague: %v", err)
 	}
 
 	for _, participant := range leagueParticipants.LeagueStandings.LeagueResults {
@@ -171,7 +173,7 @@ func WriteToFile(myFPLServer *MyFPLServer, leagueCode int) (string, error) {
 	fileName := fmt.Sprintf(csvFileName, time.Now().Format("2006-01-02"), leagueCode)
 	file, err := os.Create(fileName)
 	if err != nil {
-		return "", errors.Errorf("error creating file : %v", err)
+		return "", errors.Errorf("error creating file %v : %v", fileName, err)
 	}
 	defer file.Close()
 
@@ -188,7 +190,7 @@ func WriteToFile(myFPLServer *MyFPLServer, leagueCode int) (string, error) {
 
 	err = writer.Write(record)
 	if err != nil {
-		return "", errors.Errorf("error writing to file : %v", err)
+		return "", errors.Errorf("error writing to file %v: %v", fileName, err)
 	}
 
 	allPlayers := myFPLServer.playerOccurances[numOfGameweeks]
@@ -205,28 +207,32 @@ func WriteToFile(myFPLServer *MyFPLServer, leagueCode int) (string, error) {
 
 		err := writer.Write(record)
 		if err != nil {
-			return "", errors.Errorf("error writing to file : %v", err)
+			return "", errors.Errorf("error writing to file %v : %v", fileName, err)
 		}
 	}
 	return fileName, nil
 }
 
 func makeRequest(myFPLServer *MyFPLServer, URL string) ([]byte, error) {
+
+	var err error
+	customErr := errors.Errorf("error with request to %v : %v", URL, err)
+
 	req, err := http.NewRequest(http.MethodGet, URL, nil)
 	if err != nil {
-		return nil, errors.Errorf("error with request : %v", err)
+		return nil, customErr
 	}
 
 	req.Header.Set("User-Agent", "pg-fpl")
 
 	resp, err := myFPLServer.httpClient.Do(req)
 	if err != nil {
-		return nil, errors.Errorf("error with request : %v", err)
+		return nil, customErr
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, errors.Errorf("error with request : %v", err)
+		return nil, customErr
 	}
 
 	return body, nil
