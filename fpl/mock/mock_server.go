@@ -133,3 +133,23 @@ func (m *MockFPLServer) GetPlayerMap() map[int64]string {
 func (mr *MockFPLServerMockRecorder) GetPlayerMap() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPlayerMap", reflect.TypeOf((*MockFPLServer)(nil).GetPlayerMap))
 }
+
+// SetPlayerMap mocks base method
+func (m *MockFPLServer) SetPlayerMap(arg0 map[int64]string) {
+	m.ctrl.Call(m, "SetPlayerMap", arg0)
+}
+
+// SetPlayerMap indicates an expected call of SetPlayerMap
+func (mr *MockFPLServerMockRecorder) SetPlayerMap(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPlayerMap", reflect.TypeOf((*MockFPLServer)(nil).SetPlayerMap), arg0)
+}
+
+// SetLeagueParticipants mocks base method
+func (m *MockFPLServer) SetLeagueParticipants(arg0 *[]int64) {
+	m.ctrl.Call(m, "SetLeagueParticipants", arg0)
+}
+
+// SetLeagueParticipants indicates an expected call of SetLeagueParticipants
+func (mr *MockFPLServerMockRecorder) SetLeagueParticipants(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLeagueParticipants", reflect.TypeOf((*MockFPLServer)(nil).SetLeagueParticipants), arg0)
+}

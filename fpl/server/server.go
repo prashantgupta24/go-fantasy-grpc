@@ -21,7 +21,8 @@ import (
 
 //GetNumberOfPlayers is the gRPC method to get number of players
 func (s *MyFPLServer) GetNumberOfPlayers(context.Context, *grpc_fpl.NumPlayerRequest) (*grpc_fpl.NumPlayers, error) {
-	numPlayersInFPL, err := GetPlayerMapping(s)
+	playerMap, err := GetPlayerMapping(s)
+	numPlayersInFPL := len(playerMap)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "error while getting player mapping : %v", err)
 	}
@@ -30,7 +31,8 @@ func (s *MyFPLServer) GetNumberOfPlayers(context.Context, *grpc_fpl.NumPlayerReq
 
 //GetParticipantsInLeague is the gRPC method to get number of participants in a league
 func (s *MyFPLServer) GetParticipantsInLeague(cxt context.Context, leagueCode *grpc_fpl.LeagueCode) (*grpc_fpl.NumParticipants, error) {
-	numParticipants, err := GetParticipantsInLeague(s, int(leagueCode.LeagueCode))
+	leagueParticipants, err := GetParticipantsInLeague(s, int(leagueCode.LeagueCode))
+	numParticipants := len(*leagueParticipants)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "error while getting participants in league : %v", err)
 	}
@@ -39,16 +41,18 @@ func (s *MyFPLServer) GetParticipantsInLeague(cxt context.Context, leagueCode *g
 
 //GetDataForGameweek is the gRPC method to get player occurances for a single gameweek
 func (s *MyFPLServer) GetDataForGameweek(cxt context.Context, req *grpc_fpl.GameweekReq) (*grpc_fpl.PlayerOccuranceData, error) {
-	_, err := GetPlayerMapping(s)
+	playerMap, err := GetPlayerMapping(s)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "error while getting player mapping : %v", err)
 	}
+	s.SetPlayerMap(playerMap)
+
 	GetParticipantsInLeague(s, int(req.LeagueCode))
 
 	playerOccuranceForGameweek := make(map[string]int)
 	fmt.Printf("Fetching data for gameweek %v\n", req.Gameweek)
 
-	for _, participant := range s.leagueParticipants[0:10] {
+	for _, participant := range *s.leagueParticipants {
 		err := GetTeamInfoForParticipant(participant, int(req.Gameweek), playerOccuranceForGameweek, s)
 		if err != nil {
 			break
@@ -70,10 +74,11 @@ func (s *MyFPLServer) GetDataForGameweek(cxt context.Context, req *grpc_fpl.Game
 
 //GetDataForAllGameweeks is the gRPC method to get player occurances for all available gameweeks in a csv format
 func (s *MyFPLServer) GetDataForAllGameweeks(req *grpc_fpl.LeagueCode, stream grpc_fpl.FPL_GetDataForAllGameweeksServer) error {
-	_, err := GetPlayerMapping(s)
+	playerMap, err := GetPlayerMapping(s)
 	if err != nil {
 		return status.Errorf(codes.Internal, "error while getting player mapping : %v", err)
 	}
+	s.SetPlayerMap(playerMap)
 
 	_, err = GetParticipantsInLeague(s, int(req.LeagueCode))
 	if err != nil {
@@ -89,7 +94,9 @@ func (s *MyFPLServer) GetDataForAllGameweeks(req *grpc_fpl.LeagueCode, stream gr
 			playerOccuranceForGameweek := make(map[string]int)
 			fmt.Printf("Fetching data for gameweek %v\n", gameweek)
 
-			for _, participant := range s.leagueParticipants[0:10] {
+			leagueParticipants := *s.leagueParticipants
+			topLeagueParticipants := leagueParticipants[0:10]
+			for _, participant := range topLeagueParticipants {
 				err := GetTeamInfoForParticipant(participant, gameweek, playerOccuranceForGameweek, s)
 				if err != nil {
 					break
@@ -207,6 +214,20 @@ func (s *MyFPLServer) GetPlayerOccurances() map[int]map[string]int {
 //GetPlayerMap gets the player map created for FPL
 func (s *MyFPLServer) GetPlayerMap() map[int64]string {
 	return s.playerMap
+}
+
+//SetPlayerMap sets the player map
+func (s *MyFPLServer) SetPlayerMap(playerMap map[int64]string) {
+	s.playerMap = playerMap
+}
+
+//SetLeagueParticipants sets the league participants
+func (s *MyFPLServer) SetLeagueParticipants(participants *[]int64) {
+	s.leagueParticipants = participants
+	// 	*s = append(*s, 3)
+	// 	s.leagueParticipants = participants
+	// 	fmt.Printf("In addValue: s is %v\n", s)
+	// }
 }
 
 //startgRPCServer is the official call to start the gRPC server
