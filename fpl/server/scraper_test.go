@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/go-fantasy/fpl/mock"
@@ -10,33 +9,6 @@ import (
 )
 
 func TestGetTeamInfoForParticipant(t *testing.T) {
-	// type args struct {
-	// 	participantNumber int64
-	// 	gameweek          int
-	// 	playerOccurance   map[string]int
-	// 	myFPLServer       *MyFPLServer
-	// }
-	// tests := []struct {
-	// 	name    string
-	// 	args    args
-	// 	wantErr bool
-	// }{
-	// 	// TODO: Add test cases.
-	// }
-	// for _, tt := range tests {
-	// 	t.Run(tt.name, func(t *testing.T) {
-	// 		if err := GetTeamInfoForParticipant(tt.args.participantNumber, tt.args.gameweek, tt.args.playerOccurance, tt.args.myFPLServer); (err != nil) != tt.wantErr {
-	// 			t.Errorf("GetTeamInfoForParticipant() error = %v, wantErr %v", err, tt.wantErr)
-	// 		}
-	// 	})
-	// }
-	// _ = httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-	// 	// Test request parameters
-	// 	//equals(t, req.URL.String(), "/some/path")
-	// 	fmt.Printf("values are : %v", req.URL.String())
-	// 	// Send response to be tested
-	// 	rw.Write([]byte(`OK`))
-	// }))
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -108,8 +80,7 @@ func TestGetTeamInfoForParticipant(t *testing.T) {
       }
    ]
 }`
-	teamURL := fmt.Sprintf(teamURL, 1, 1)
-	testObj.EXPECT().MakeRequest(teamURL).Return([]byte(b), nil).Times(1)
+	testObj.EXPECT().MakeRequest(gomock.Any()).Return([]byte(b), nil).Times(1)
 	testObj.EXPECT().GetPlayerMap().Return(playerMap).Times(1)
 
 	playerOccuranceForGameweek := make(map[string]int)
@@ -117,10 +88,9 @@ func TestGetTeamInfoForParticipant(t *testing.T) {
 	err := GetTeamInfoForParticipant(1, 1, playerOccuranceForGameweek, testObj)
 	assert.Nil(t, err)
 
-	assert.Equal(t, playerOccuranceForGameweek["Messi"], 1)
-	// for key, value := range playerOccuranceForGameweek {
-	// 	fmt.Printf("key %v and value %v\n", key, value)
-	// }
+	for _, value := range playerMap {
+		assert.Equal(t, playerOccuranceForGameweek[value], 1, "Values not matching for %v", value)
+	}
 }
 
 func TestGetPlayerMapping(t *testing.T) {
@@ -128,7 +98,6 @@ func TestGetPlayerMapping(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	testObj := mock_server.NewMockFPLServer(mockCtrl)
-	//playerMap := make(map[int64]string)
 
 	b := `{
   "phases": [
@@ -257,11 +226,10 @@ func TestGetPlayerMapping(t *testing.T) {
 ]
 }`
 
-	testObj.EXPECT().MakeRequest(allPlayersURL).Return([]byte(b), nil).Times(1)
+	testObj.EXPECT().MakeRequest(gomock.Any()).Return([]byte(b), nil).Times(1)
 	playerMap, err := GetPlayerMapping(testObj)
 	assert.Equal(t, len(playerMap), 2)
 	assert.Nil(t, err)
-	fmt.Println("length of map ", len(playerMap))
 
 }
 
@@ -343,10 +311,8 @@ func TestGetParticipantsInLeague(t *testing.T) {
       ]
    }
 }`
-	leagueCode := 1
-	participantsURL := fmt.Sprintf(participantsURL, leagueCode)
-	testObj.EXPECT().MakeRequest(participantsURL).Return([]byte(b), nil).Times(1)
-	leagueParticipants, err := GetParticipantsInLeague(testObj, leagueCode)
+	testObj.EXPECT().MakeRequest(gomock.Any()).Return([]byte(b), nil).Times(1)
+	leagueParticipants, err := GetParticipantsInLeague(testObj, 1)
 
 	assert.Nil(t, err)
 	assert.Equal(t, 4, len(*leagueParticipants))

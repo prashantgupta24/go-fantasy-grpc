@@ -166,11 +166,11 @@ func GetParticipantsInLeague(fplServer FPLServer, leagueCode int) (*[]int64, err
 		leagueParticipantsData = append(leagueParticipantsData, participant.Entry)
 	}
 
-	fmt.Printf("Fetched %v participants in league", strconv.Itoa(len(leagueParticipantsData)))
+	fmt.Printf("Fetched %v participants in league\n", strconv.Itoa(len(leagueParticipantsData)))
 	return &leagueParticipantsData, nil
 }
 
-func WriteToFile(myFPLServer *MyFPLServer, leagueCode int) (string, error) {
+func WriteToFile(myFPLServer FPLServer, leagueCode int) (string, error) {
 	fmt.Println("Writing to file ...")
 
 	fileName := fmt.Sprintf(csvFileName, time.Now().Format("2006-01-02"), leagueCode)
@@ -183,7 +183,8 @@ func WriteToFile(myFPLServer *MyFPLServer, leagueCode int) (string, error) {
 	writer := csv.NewWriter(file)
 	defer writer.Flush()
 
-	numOfGameweeks := len(myFPLServer.playerOccurances)
+	playerOccurances := myFPLServer.GetPlayerOccurances()
+	numOfGameweeks := len(playerOccurances)
 	//Headers
 	var record []string
 	record = append(record, "Player")
@@ -196,15 +197,15 @@ func WriteToFile(myFPLServer *MyFPLServer, leagueCode int) (string, error) {
 		return "", errors.Errorf("error writing to file %v: %v", fileName, err)
 	}
 
-	allPlayers := myFPLServer.playerOccurances[numOfGameweeks]
+	allPlayersInLatestGameweek := playerOccurances[numOfGameweeks]
 
-	for player := range allPlayers {
+	for player := range allPlayersInLatestGameweek {
 
 		var record []string
 		record = append(record, string(player))
 
 		for gameweekNum := 1; gameweekNum <= numOfGameweeks; gameweekNum++ {
-			playerOccuranceForGameweek := myFPLServer.playerOccurances[gameweekNum]
+			playerOccuranceForGameweek := playerOccurances[gameweekNum]
 			record = append(record, strconv.Itoa(playerOccuranceForGameweek[player]))
 		}
 
