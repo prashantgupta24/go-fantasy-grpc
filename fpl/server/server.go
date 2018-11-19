@@ -52,7 +52,10 @@ func (s *MyFPLServer) GetDataForGameweek(cxt context.Context, req *grpc_fpl.Game
 	playerOccuranceForGameweek := make(map[string]int)
 	fmt.Printf("Fetching data for gameweek %v\n", req.Gameweek)
 
-	for _, participant := range *s.leagueParticipants {
+	leagueParticipants := *s.leagueParticipants
+	topLeagueParticipants := leagueParticipants[0:10]
+
+	for _, participant := range topLeagueParticipants {
 		err := GetTeamInfoForParticipant(participant, int(req.Gameweek), playerOccuranceForGameweek, s)
 		if err != nil {
 			break
