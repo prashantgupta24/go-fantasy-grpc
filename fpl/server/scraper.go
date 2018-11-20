@@ -101,84 +101,90 @@ type LeagueResults struct {
 	Entry int64 `json:"entry"`
 }
 
-func GetTeamInfoForParticipant(participantNumber int64, gameweek int, playerOccurance map[string]int, myFPLServer *MyFPLServer) error {
+func GetTeamInfoForParticipant(participantNumber int64, gameweek int, playerOccurance map[string]int, fplServer FPLServer) error {
 	teamURL := fmt.Sprintf(teamURL, participantNumber, gameweek)
 
-	response, err := makeRequest(myFPLServer, teamURL)
+	response, err := fplServer.MakeRequest(teamURL)
 	if err != nil {
-		return errors.Errorf("error making request : %v", err)
+		return err
 	}
 
 	ParticipantTeamInfo := new(ParticipantTeamInfo)
 	err = json.Unmarshal(response, &ParticipantTeamInfo)
 	if err != nil {
-		return err
+		fmt.Println("error ")
+		return errors.Errorf("error unmarshalling response URL %v for GetTeamInfoForParticipant: %v", teamURL, err)
 	}
 
+	playerMap := fplServer.GetPlayerMap()
 	for _, player := range ParticipantTeamInfo.TeamPlayers {
-		playerOccurance[myFPLServer.playerMap[player.Element]]++
+		playerOccurance[playerMap[player.Element]]++
 	}
 	return nil
 }
 
-func GetPlayerMapping(myFPLServer *MyFPLServer) (int, error) {
+func GetPlayerMapping(fplServer FPLServer) (map[int64]string, error) {
 
-	response, err := makeRequest(myFPLServer, allPlayersURL)
+	response, err := fplServer.MakeRequest(allPlayersURL)
 	if err != nil {
-		return 0, errors.Errorf("error making request : %v", err)
+		return nil, err
 	}
 
 	allPlayers := new(AllPlayers)
 	err = json.Unmarshal(response, &allPlayers)
 	if err != nil {
-		return 0, err
+		return nil, errors.Errorf("error unmarshalling response for GetPlayerMapping : %v", err)
 	}
 
+	playerMap := make(map[int64]string)
 	for _, player := range allPlayers.Players {
-		myFPLServer.playerMap[player.ID] = player.WebName
+		playerMap[player.ID] = player.WebName
 	}
 
-	fmt.Printf("Fetched data of %v premier league players \n", strconv.Itoa(len(myFPLServer.playerMap)))
-	return len(myFPLServer.playerMap), nil
+	numPlayers := len(playerMap)
+	fmt.Printf("Fetched data of %v premier league players \n", strconv.Itoa(numPlayers))
+	return playerMap, nil
 
 }
 
-func GetParticipantsInLeague(myFPLServer *MyFPLServer, leagueCode int) (int, error) {
+func GetParticipantsInLeague(fplServer FPLServer, leagueCode int) (*[]int64, error) {
 	participantsURL := fmt.Sprintf(participantsURL, leagueCode)
 
-	response, err := makeRequest(myFPLServer, participantsURL)
+	response, err := fplServer.MakeRequest(participantsURL)
 	if err != nil {
-		return 0, errors.Errorf("error making request : %v", err)
+		return nil, err
 	}
 
 	leagueParticipants := new(LeagueParticipants)
 	err = json.Unmarshal(response, &leagueParticipants)
 	if err != nil {
-		return 0, errors.Errorf("could not parse response : %v", err)
+		return nil, errors.Errorf("could not parse response for GetParticipantsInLeague: %v", err)
 	}
 
+	var leagueParticipantsData []int64
 	for _, participant := range leagueParticipants.LeagueStandings.LeagueResults {
-		myFPLServer.leagueParticipants = append(myFPLServer.leagueParticipants, participant.Entry)
+		leagueParticipantsData = append(leagueParticipantsData, participant.Entry)
 	}
 
-	fmt.Printf("Fetched %v participants in league", strconv.Itoa(len(myFPLServer.leagueParticipants)))
-	return len(myFPLServer.leagueParticipants), nil
+	fmt.Printf("Fetched %v participants in league\n", strconv.Itoa(len(leagueParticipantsData)))
+	return &leagueParticipantsData, nil
 }
 
-func WriteToFile(myFPLServer *MyFPLServer, leagueCode int) (string, error) {
+func WriteToFile(myFPLServer FPLServer, leagueCode int) (string, error) {
 	fmt.Println("Writing to file ...")
 
 	fileName := fmt.Sprintf(csvFileName, time.Now().Format("2006-01-02"), leagueCode)
 	file, err := os.Create(fileName)
 	if err != nil {
-		return "", errors.Errorf("error creating file : %v", err)
+		return "", errors.Errorf("error creating file %v : %v", fileName, err)
 	}
 	defer file.Close()
 
 	writer := csv.NewWriter(file)
 	defer writer.Flush()
 
-	numOfGameweeks := len(myFPLServer.playerOccurances)
+	playerOccurances := myFPLServer.GetPlayerOccurances()
+	numOfGameweeks := len(playerOccurances)
 	//Headers
 	var record []string
 	record = append(record, "Player")
@@ -188,45 +194,49 @@ func WriteToFile(myFPLServer *MyFPLServer, leagueCode int) (string, error) {
 
 	err = writer.Write(record)
 	if err != nil {
-		return "", errors.Errorf("error writing to file : %v", err)
+		return "", errors.Errorf("error writing to file %v: %v", fileName, err)
 	}
 
-	allPlayers := myFPLServer.playerOccurances[numOfGameweeks]
+	allPlayersInLatestGameweek := playerOccurances[numOfGameweeks]
 
-	for player := range allPlayers {
+	for player := range allPlayersInLatestGameweek {
 
 		var record []string
 		record = append(record, string(player))
 
 		for gameweekNum := 1; gameweekNum <= numOfGameweeks; gameweekNum++ {
-			playerOccuranceForGameweek := myFPLServer.playerOccurances[gameweekNum]
+			playerOccuranceForGameweek := playerOccurances[gameweekNum]
 			record = append(record, strconv.Itoa(playerOccuranceForGameweek[player]))
 		}
 
 		err := writer.Write(record)
 		if err != nil {
-			return "", errors.Errorf("error writing to file : %v", err)
+			return "", errors.Errorf("error writing to file %v : %v", fileName, err)
 		}
 	}
 	return fileName, nil
 }
 
 func makeRequest(myFPLServer *MyFPLServer, URL string) ([]byte, error) {
+
+	var err error
+	customErr := errors.Errorf("error with request to %v : %v", URL, err)
+
 	req, err := http.NewRequest(http.MethodGet, URL, nil)
 	if err != nil {
-		return nil, errors.Errorf("error with request : %v", err)
+		return nil, customErr
 	}
 
 	req.Header.Set("User-Agent", "pg-fpl")
 
 	resp, err := myFPLServer.httpClient.Do(req)
 	if err != nil {
-		return nil, errors.Errorf("error with request : %v", err)
+		return nil, customErr
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, errors.Errorf("error with request : %v", err)
+		return nil, customErr
 	}
 
 	return body, nil
