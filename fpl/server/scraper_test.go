@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/go-fantasy/fpl/mock"
@@ -80,7 +81,9 @@ func TestGetTeamInfoForParticipant(t *testing.T) {
       }
    ]
 }`
-	testObj.EXPECT().MakeRequest(gomock.Any()).Return([]byte(b), nil).Times(1)
+	testObj.EXPECT().MakeRequest(gomock.Any()).Do(func(s string) {
+		fmt.Printf("Calling MakeRequest with %v url \n\n", s)
+	}).Return([]byte(b), nil).Times(1)
 	testObj.EXPECT().GetPlayerMap().Return(playerMap).Times(1)
 
 	playerOccuranceForGameweek := make(map[string]int)
