@@ -63,7 +63,7 @@ func main() {
 	// }
 
 	//Fourth method
-	resultFile, err := os.Create(fmt.Sprintf("dataFile-%v-%v.csv", time.Now().Format("2006-01-02"), leagueCode))
+	resultFile, err := os.Create(fmt.Sprintf("example/data/dataFile-%v-%v.csv", time.Now().Format("2006-01-02-15-04"), leagueCode))
 	if err != nil {
 		log.Fatal("Unable to create file : ", err)
 	}
@@ -72,12 +72,12 @@ func main() {
 		resultFile.Close()
 	}()
 
-	csvFile, err := myFPLClient.GetDataForAllGameweeks(ctx, &grpc_fpl.LeagueCode{LeagueCode: leagueCode})
+	stream, err := myFPLClient.GetDataForAllGameweeks(ctx, &grpc_fpl.LeagueCode{LeagueCode: leagueCode})
 	if err != nil {
 		log.Fatal("Unable to fetch data from gRPC method : ", err)
 	}
 	for {
-		buf, err := csvFile.Recv()
+		buf, err := stream.Recv()
 		if err == io.EOF {
 			log.Println("File transfer complete!")
 			break

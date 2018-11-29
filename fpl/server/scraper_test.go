@@ -1,10 +1,11 @@
-package server
+package server_test
 
 import (
 	"fmt"
 	"testing"
 
 	"github.com/go-fantasy/fpl/mock"
+	"github.com/go-fantasy/fpl/server"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -13,13 +14,13 @@ func TestGetTeamInfoForParticipant(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	testObj := mock_server.NewMockFPLServer(mockCtrl)
+	testObj := mock_server.NewMockClient(mockCtrl)
 	playerMap := make(map[int64]string)
 	playerMap[267] = "Messi"
 	playerMap[247] = "Ronaldo"
 	playerMap[454] = "Salah"
 
-	b := `{  
+	b1 := `{  
    "active_chip":"",
    "automatic_subs":[  
 
@@ -81,18 +82,83 @@ func TestGetTeamInfoForParticipant(t *testing.T) {
       }
    ]
 }`
+
+	b2 := `{  
+   "active_chip":"",
+   "automatic_subs":[  
+
+   ],
+   "entry_history":{  
+      "id":1,
+      "movement":"new",
+      "points":99,
+      "total_points":99,
+      "rank":16627,
+      "rank_sort":16627,
+      "overall_rank":16627,
+      "targets":null,
+      "event_transfers":0,
+      "event_transfers_cost":0,
+      "value":1000,
+      "points_on_bench":14,
+      "bank":0,
+      "entry":1,
+      "event":1
+   },
+   "event":{  
+      "id":1,
+      "name":"Gameweek 1",
+      "deadline_time":"2018-08-10T18:00:00Z",
+      "average_entry_score":53,
+      "finished":true,
+      "data_checked":true,
+      "highest_scoring_entry":890626,
+      "deadline_time_epoch":1533924000,
+      "deadline_time_game_offset":3600,
+      "deadline_time_formatted":"10 Aug 19:00",
+      "highest_score":137,
+      "is_previous":false,
+      "is_current":false,
+      "is_next":false
+   },
+   "picks":[  
+      {  
+         "element":267,
+         "position":2,
+         "is_captain":false,
+         "is_vice_captain":false,
+         "multiplier":1
+      },
+      {  
+         "element":247,
+         "position":3,
+         "is_captain":false,
+         "is_vice_captain":false,
+         "multiplier":1
+      }
+   ]
+}`
+	firstcall := testObj.EXPECT().MakeRequest(gomock.Any()).Do(func(s string) {
+		fmt.Printf("Calling MakeRequest with %v url \n\n", s)
+	}).Return([]byte(b1), nil).Times(1)
+
 	testObj.EXPECT().MakeRequest(gomock.Any()).Do(func(s string) {
 		fmt.Printf("Calling MakeRequest with %v url \n\n", s)
-	}).Return([]byte(b), nil).Times(1)
-	testObj.EXPECT().GetPlayerMap().Return(playerMap).Times(1)
+	}).Return([]byte(b2), nil).After(firstcall).Times(1)
 
-	playerOccuranceForGameweek := make(map[string]int)
-
-	err := GetTeamInfoForParticipant(1, 1, playerOccuranceForGameweek, testObj)
+	testScraper := &server.MyFPLScraper{
+		Client: testObj,
+	}
+	//participantsInLeague := []int64{2575352, 3614956, 8995, 8450}
+	playerOccuranceForGameweek, err := testScraper.GetTeamInfoForParticipant(playerMap, 1, &[]int64{1, 2})
 	assert.Nil(t, err)
 
-	for _, value := range playerMap {
-		assert.Equal(t, playerOccuranceForGameweek[value], 1, "Values not matching for %v", value)
+	for _, player := range playerMap {
+		if player == "Salah" {
+			assert.Equal(t, playerOccuranceForGameweek[player], 1, "Values not matching for %v", player)
+		} else {
+			assert.Equal(t, playerOccuranceForGameweek[player], 2, "Values not matching for %v", player)
+		}
 	}
 }
 
@@ -100,7 +166,7 @@ func TestGetPlayerMapping(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	testObj := mock_server.NewMockFPLServer(mockCtrl)
+	testObj := mock_server.NewMockClient(mockCtrl)
 
 	b := `{
   "phases": [
@@ -230,7 +296,10 @@ func TestGetPlayerMapping(t *testing.T) {
 }`
 
 	testObj.EXPECT().MakeRequest(gomock.Any()).Return([]byte(b), nil).Times(1)
-	playerMap, err := GetPlayerMapping(testObj)
+	testScraper := &server.MyFPLScraper{
+		Client: testObj,
+	}
+	playerMap, err := testScraper.GetPlayerMapping()
 	assert.Equal(t, len(playerMap), 2)
 	assert.Nil(t, err)
 
@@ -240,7 +309,7 @@ func TestGetParticipantsInLeague(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	testObj := mock_server.NewMockFPLServer(mockCtrl)
+	testObj := mock_server.NewMockClient(mockCtrl)
 
 	b := `{  
    "standings":{  
@@ -315,7 +384,12 @@ func TestGetParticipantsInLeague(t *testing.T) {
    }
 }`
 	testObj.EXPECT().MakeRequest(gomock.Any()).Return([]byte(b), nil).Times(1)
-	leagueParticipants, err := GetParticipantsInLeague(testObj, 1)
+
+	testScraper := &server.MyFPLScraper{
+		Client: testObj,
+	}
+	leagueParticipants, err := testScraper.GetParticipantsInLeague(1)
+	//fmt.Println(*leagueParticipants)
 
 	assert.Nil(t, err)
 	assert.Equal(t, 4, len(*leagueParticipants))

@@ -97,8 +97,106 @@ func (mr *MockFPLServerMockRecorder) Start(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockFPLServer)(nil).Start), arg0)
 }
 
+// MockScraper is a mock of Scraper interface
+type MockScraper struct {
+	ctrl     *gomock.Controller
+	recorder *MockScraperMockRecorder
+}
+
+// MockScraperMockRecorder is the mock recorder for MockScraper
+type MockScraperMockRecorder struct {
+	mock *MockScraper
+}
+
+// NewMockScraper creates a new mock instance
+func NewMockScraper(ctrl *gomock.Controller) *MockScraper {
+	mock := &MockScraper{ctrl: ctrl}
+	mock.recorder = &MockScraperMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockScraper) EXPECT() *MockScraperMockRecorder {
+	return m.recorder
+}
+
+// GetTeamInfoForParticipant mocks base method
+func (m *MockScraper) GetTeamInfoForParticipant(arg0 map[int64]string, arg1 int, arg2 *[]int64) (map[string]int, error) {
+	ret := m.ctrl.Call(m, "GetTeamInfoForParticipant", arg0, arg1, arg2)
+	ret0, _ := ret[0].(map[string]int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTeamInfoForParticipant indicates an expected call of GetTeamInfoForParticipant
+func (mr *MockScraperMockRecorder) GetTeamInfoForParticipant(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTeamInfoForParticipant", reflect.TypeOf((*MockScraper)(nil).GetTeamInfoForParticipant), arg0, arg1, arg2)
+}
+
+// GetPlayerMapping mocks base method
+func (m *MockScraper) GetPlayerMapping() (map[int64]string, error) {
+	ret := m.ctrl.Call(m, "GetPlayerMapping")
+	ret0, _ := ret[0].(map[int64]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPlayerMapping indicates an expected call of GetPlayerMapping
+func (mr *MockScraperMockRecorder) GetPlayerMapping() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPlayerMapping", reflect.TypeOf((*MockScraper)(nil).GetPlayerMapping))
+}
+
+// GetParticipantsInLeague mocks base method
+func (m *MockScraper) GetParticipantsInLeague(arg0 int) (*[]int64, error) {
+	ret := m.ctrl.Call(m, "GetParticipantsInLeague", arg0)
+	ret0, _ := ret[0].(*[]int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetParticipantsInLeague indicates an expected call of GetParticipantsInLeague
+func (mr *MockScraperMockRecorder) GetParticipantsInLeague(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetParticipantsInLeague", reflect.TypeOf((*MockScraper)(nil).GetParticipantsInLeague), arg0)
+}
+
+// WriteToFile mocks base method
+func (m *MockScraper) WriteToFile(arg0 map[int]map[string]int, arg1 int) (string, error) {
+	ret := m.ctrl.Call(m, "WriteToFile", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WriteToFile indicates an expected call of WriteToFile
+func (mr *MockScraperMockRecorder) WriteToFile(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteToFile", reflect.TypeOf((*MockScraper)(nil).WriteToFile), arg0, arg1)
+}
+
+// MockClient is a mock of Client interface
+type MockClient struct {
+	ctrl     *gomock.Controller
+	recorder *MockClientMockRecorder
+}
+
+// MockClientMockRecorder is the mock recorder for MockClient
+type MockClientMockRecorder struct {
+	mock *MockClient
+}
+
+// NewMockClient creates a new mock instance
+func NewMockClient(ctrl *gomock.Controller) *MockClient {
+	mock := &MockClient{ctrl: ctrl}
+	mock.recorder = &MockClientMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockClient) EXPECT() *MockClientMockRecorder {
+	return m.recorder
+}
+
 // MakeRequest mocks base method
-func (m *MockFPLServer) MakeRequest(arg0 string) ([]byte, error) {
+func (m *MockClient) MakeRequest(arg0 string) ([]byte, error) {
 	ret := m.ctrl.Call(m, "MakeRequest", arg0)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
@@ -106,50 +204,6 @@ func (m *MockFPLServer) MakeRequest(arg0 string) ([]byte, error) {
 }
 
 // MakeRequest indicates an expected call of MakeRequest
-func (mr *MockFPLServerMockRecorder) MakeRequest(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeRequest", reflect.TypeOf((*MockFPLServer)(nil).MakeRequest), arg0)
-}
-
-// GetPlayerOccurances mocks base method
-func (m *MockFPLServer) GetPlayerOccurances() map[int]map[string]int {
-	ret := m.ctrl.Call(m, "GetPlayerOccurances")
-	ret0, _ := ret[0].(map[int]map[string]int)
-	return ret0
-}
-
-// GetPlayerOccurances indicates an expected call of GetPlayerOccurances
-func (mr *MockFPLServerMockRecorder) GetPlayerOccurances() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPlayerOccurances", reflect.TypeOf((*MockFPLServer)(nil).GetPlayerOccurances))
-}
-
-// GetPlayerMap mocks base method
-func (m *MockFPLServer) GetPlayerMap() map[int64]string {
-	ret := m.ctrl.Call(m, "GetPlayerMap")
-	ret0, _ := ret[0].(map[int64]string)
-	return ret0
-}
-
-// GetPlayerMap indicates an expected call of GetPlayerMap
-func (mr *MockFPLServerMockRecorder) GetPlayerMap() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPlayerMap", reflect.TypeOf((*MockFPLServer)(nil).GetPlayerMap))
-}
-
-// SetPlayerMap mocks base method
-func (m *MockFPLServer) SetPlayerMap(arg0 map[int64]string) {
-	m.ctrl.Call(m, "SetPlayerMap", arg0)
-}
-
-// SetPlayerMap indicates an expected call of SetPlayerMap
-func (mr *MockFPLServerMockRecorder) SetPlayerMap(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPlayerMap", reflect.TypeOf((*MockFPLServer)(nil).SetPlayerMap), arg0)
-}
-
-// SetLeagueParticipants mocks base method
-func (m *MockFPLServer) SetLeagueParticipants(arg0 *[]int64) {
-	m.ctrl.Call(m, "SetLeagueParticipants", arg0)
-}
-
-// SetLeagueParticipants indicates an expected call of SetLeagueParticipants
-func (mr *MockFPLServerMockRecorder) SetLeagueParticipants(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLeagueParticipants", reflect.TypeOf((*MockFPLServer)(nil).SetLeagueParticipants), arg0)
+func (mr *MockClientMockRecorder) MakeRequest(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeRequest", reflect.TypeOf((*MockClient)(nil).MakeRequest), arg0)
 }

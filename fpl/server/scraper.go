@@ -13,12 +13,15 @@ import (
 	"github.com/pkg/errors"
 )
 
+/*
+GameweekMax is the max gameweek to fetch upto
+*/
 const (
 	teamURL         = "https://fantasy.premierleague.com/drf/entry/%v/event/%v/picks"
 	allPlayersURL   = "https://fantasy.premierleague.com/drf/bootstrap-static"
 	participantsURL = "https://fantasy.premierleague.com/drf/leagues-classic-standings/%v?phase=1&le-page=1&ls-page=1"
 	csvFileName     = "temp-%v-%v.csv"
-	gameweekMax     = 38
+	GameweekMax     = 38
 )
 
 /* Structure of JSON
@@ -101,31 +104,36 @@ type LeagueResults struct {
 	Entry int64 `json:"entry"`
 }
 
-func GetTeamInfoForParticipant(participantNumber int64, gameweek int, playerOccurance map[string]int, fplServer FPLServer) error {
-	teamURL := fmt.Sprintf(teamURL, participantNumber, gameweek)
+//GetTeamInfoForParticipant gets a map of players and their picks for a gameweek for all participants provided
+func (s *MyFPLScraper) GetTeamInfoForParticipant(playerMap map[int64]string, gameweek int, topLeagueParticipants *[]int64) (map[string]int, error) {
 
-	response, err := fplServer.MakeRequest(teamURL)
-	if err != nil {
-		return err
+	playerOccuranceForGameweek := make(map[string]int)
+	for _, participant := range *topLeagueParticipants {
+		teamURL := fmt.Sprintf(teamURL, participant, gameweek)
+
+		response, err := s.MakeRequest(teamURL)
+		if err != nil {
+			return nil, err
+		}
+
+		ParticipantTeamInfo := new(ParticipantTeamInfo)
+		err = json.Unmarshal(response, &ParticipantTeamInfo)
+		if err != nil {
+			//return nil, errors.Errorf("error unmarshalling response URL %v for GetTeamInfoForParticipant: %v", teamURL, err)
+			break
+		}
+
+		for _, player := range ParticipantTeamInfo.TeamPlayers {
+			playerOccuranceForGameweek[playerMap[player.Element]]++
+		}
 	}
 
-	ParticipantTeamInfo := new(ParticipantTeamInfo)
-	err = json.Unmarshal(response, &ParticipantTeamInfo)
-	if err != nil {
-		fmt.Println("error ")
-		return errors.Errorf("error unmarshalling response URL %v for GetTeamInfoForParticipant: %v", teamURL, err)
-	}
-
-	playerMap := fplServer.GetPlayerMap()
-	for _, player := range ParticipantTeamInfo.TeamPlayers {
-		playerOccurance[playerMap[player.Element]]++
-	}
-	return nil
+	return playerOccuranceForGameweek, nil
 }
 
-func GetPlayerMapping(fplServer FPLServer) (map[int64]string, error) {
+func (s *MyFPLScraper) GetPlayerMapping() (map[int64]string, error) {
 
-	response, err := fplServer.MakeRequest(allPlayersURL)
+	response, err := s.MakeRequest(allPlayersURL)
 	if err != nil {
 		return nil, err
 	}
@@ -147,10 +155,10 @@ func GetPlayerMapping(fplServer FPLServer) (map[int64]string, error) {
 
 }
 
-func GetParticipantsInLeague(fplServer FPLServer, leagueCode int) (*[]int64, error) {
+func (s *MyFPLScraper) GetParticipantsInLeague(leagueCode int) (*[]int64, error) {
 	participantsURL := fmt.Sprintf(participantsURL, leagueCode)
 
-	response, err := fplServer.MakeRequest(participantsURL)
+	response, err := s.MakeRequest(participantsURL)
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +166,7 @@ func GetParticipantsInLeague(fplServer FPLServer, leagueCode int) (*[]int64, err
 	leagueParticipants := new(LeagueParticipants)
 	err = json.Unmarshal(response, &leagueParticipants)
 	if err != nil {
-		return nil, errors.Errorf("could not parse response for GetParticipantsInLeague: %v", err)
+		return nil, errors.Errorf("could not parse response for GetParticipantsInLeague for league %v: %v", leagueCode, err)
 	}
 
 	var leagueParticipantsData []int64
@@ -170,7 +178,7 @@ func GetParticipantsInLeague(fplServer FPLServer, leagueCode int) (*[]int64, err
 	return &leagueParticipantsData, nil
 }
 
-func WriteToFile(myFPLServer FPLServer, leagueCode int) (string, error) {
+func (s *MyFPLScraper) WriteToFile(playerOccurances map[int]map[string]int, leagueCode int) (string, error) {
 	fmt.Println("Writing to file ...")
 
 	fileName := fmt.Sprintf(csvFileName, time.Now().Format("2006-01-02"), leagueCode)
@@ -183,7 +191,6 @@ func WriteToFile(myFPLServer FPLServer, leagueCode int) (string, error) {
 	writer := csv.NewWriter(file)
 	defer writer.Flush()
 
-	playerOccurances := myFPLServer.GetPlayerOccurances()
 	numOfGameweeks := len(playerOccurances)
 	//Headers
 	var record []string
@@ -217,7 +224,7 @@ func WriteToFile(myFPLServer FPLServer, leagueCode int) (string, error) {
 	return fileName, nil
 }
 
-func makeRequest(myFPLServer *MyFPLServer, URL string) ([]byte, error) {
+func (client *MyFPLClient) MakeRequest(URL string) ([]byte, error) {
 
 	var err error
 	customErr := errors.Errorf("error with request to %v : %v", URL, err)
@@ -229,7 +236,7 @@ func makeRequest(myFPLServer *MyFPLServer, URL string) ([]byte, error) {
 
 	req.Header.Set("User-Agent", "pg-fpl")
 
-	resp, err := myFPLServer.httpClient.Do(req)
+	resp, err := client.HttpClient.Do(req)
 	if err != nil {
 		return nil, customErr
 	}
